@@ -1,10 +1,15 @@
 package com.ezeu.testing.Service;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import com.ezeu.testing.Utils.EmailUtil;
+import jakarta.mail.MessagingException;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.ezeu.testing.Entity.UserInfo;
@@ -14,10 +19,21 @@ import com.ezeu.testing.Repository.UserRepository;
 public class UserService {
 	@Autowired
 	private UserRepository  userRepository;
+	@Autowired
+	private PasswordEncoder  passwordEncoder;
+
+	@Autowired
+	private EmailUtil emailUtil;
 
 	public String addUser(UserInfo user) {
-		 userRepository.save(user);
-		 return "User added successfully";
+		user.setPassword(passwordEncoder.encode(user.getPassword()));
+		userRepository.save(user);
+		if(user.getEmail().endsWith("@admin.com")){
+			return "Admin registered successfully";
+		}
+		return "User registered successfully";
+
+
 	}
 
 	public UserInfo getUserById(int id) {
@@ -64,4 +80,28 @@ public class UserService {
 		}
 	}
 
+	public String deleteUser(int id) {
+		userRepository.deleteById(id);
+		return "User removed successfully";
+	}
+
+	public String forgotPassword(String email) {
+		UserInfo userInfo =userRepository.findByEmail(email)
+				.orElseThrow(()-> new RuntimeException("User not found..!!"));
+		try{
+			emailUtil.sendSetPasswordEmail(email);
+		} catch (MessagingException e) {
+			throw new RuntimeException("Unable to send message please try again later.!!");
+		}
+	return "Please check your email to reset password.";
+	}
+
+
+	public String setPassword(String email, String newPassword) {
+		UserInfo user = userRepository.findByEmail(email)
+				.orElseThrow(() -> new RuntimeException("User not found with this email: " + email));
+		user.setPassword(passwordEncoder.encode(newPassword));
+		userRepository.save(user);
+		return "new password set successfully";
+	}
 }
